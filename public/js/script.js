@@ -8,7 +8,7 @@ let playerRole = null;
 
 const renderBoard = () => {
     const board = chess.board();
-    boardElement.innerHTML = "";
+    boardElement.innerHTML = ""; // Clear the board before rendering
     board.forEach((row, rowindex) => {
         row.forEach((square, squareindex) => {
             const squareElement = document.createElement("div");
@@ -68,7 +68,7 @@ const handleMove = (source, target) => {
     const move = {
         from: `${String.fromCharCode(97 + source.col)}${8 - source.row}`,
         to: `${String.fromCharCode(97 + target.col)}${8 - target.row}`,
-        promotion: 'q',
+        promotion: 'q', // Assuming promotion to queen
     };
     socket.emit("move", move);
 };
@@ -98,12 +98,12 @@ socket.on("currentPlayer", function(role) {
 
 socket.on("move", function(move) {
     chess.move(move);
-    renderBoard();
+    renderBoard(); // Ensure the board is re-rendered after a move
 });
 
 socket.on("boardPosition", function(fen) {
     chess.load(fen);
-    renderBoard();
+    renderBoard(); // Ensure the board is re-rendered after loading a position
 });
 
-renderBoard();
+renderBoard(); // Initial render

@@ -15,3 +15,8 @@ cd Real_Time_Chess
 ```bash  
 npx nodemon 
 ```
+# Example:
+# At the initial stage:
+![alt text](image.png)
+# After the player gets eliminated
+![alt text](image-1.png)

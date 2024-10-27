@@ -41,27 +41,25 @@ io.on("connection", function(mainsocket) {
         }
     });
 
-    mainsocket.on("move", (move)=>{
+    mainsocket.on("move", (move) => {
         console.log(move);
-        try{
-            if(chess.turn() == 'w' && !mainsocket.id == players.white) return;
-            if(chess.turn() == 'b' && !mainsocket.id == players.black) return;
+        try {
+            // Corrected player turn checks
+            if ((chess.turn() == 'w' && mainsocket.id !== players.white) || 
+                (chess.turn() == 'b' && mainsocket.id !== players.black)) return;
 
             const result = chess.move(move);
-            if(result){
+            if (result) {
                 presentPlayer = chess.turn();
                 io.emit("move", move);
                 io.emit("boardPosition", chess.fen());
-            }
-            else{
+            } else {
                 console.log("Wrong move:", move);
-                socket.emit("wrongMove", move);
+                mainsocket.emit("wrongMove", move); // Corrected to mainsocket
             }
-        }
-        catch(err){
+        } catch (err) {
             console.log(err);
-            socket.emit("Wrong move: ", move);
-            socket.em
+            mainsocket.emit("Wrong move: ", move); // Corrected to mainsocket
         }
     });
 });

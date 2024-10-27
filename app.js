@@ -32,7 +32,7 @@ io.on("connection", function(mainsocket) {
         mainsocket.emit("spectatorView");
     }
 
-    mainsocket.on("disconnected", function(){
+    mainsocket.on("disconnect", function(){ // Changed from "disconnected" to "disconnect"
         if(mainsocket.id == players.white){
             delete players.white;
         }

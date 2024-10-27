@@ -92,9 +92,14 @@ const getPieceUnicode = (piece) => {
     return unicodePieces[piece.type] || "";
 };
 
-socket.on("currentPlayer", function(role){
+socket.on("currentPlayer", function(role) {
     playerRole = role;
     renderBoard();
+    // Ensure draggable pieces are updated based on player role
+    const pieces = document.querySelectorAll('.piece');
+    pieces.forEach(piece => {
+        piece.draggable = playerRole === piece.classList.contains('white') ? 'w' : 'b';
+    });
 });
 socket.on("spectatorView", function(){
     playerRole = null;

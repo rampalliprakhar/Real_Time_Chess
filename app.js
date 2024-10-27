@@ -3,6 +3,7 @@ const path = require('path');
 const express = require('express');
 
 const app = express();
+const port = 3000;
 const http = require('http');
 const {Chess} = require('chess.js');
 const socket = require('socket.io');
@@ -68,6 +69,6 @@ app.get("/", (req, res) => {
     res.render("index", {title: "RealTime Chess"});
 })
 
-server.listen(3000, function() {
-    console.log("Server Running");
+server.listen(port, function() {
+    console.log(`Server Running on http://localhost:${port}`);
 });

@@ -9,62 +9,61 @@ let playerRole = null;
 const renderBoard = () => {
     const board = chess.board();
     boardElement.innerHTML = "";
-    console.log(board);
     board.forEach((row, rowindex) => {
         row.forEach((square, squareindex) => {
             const squareElement = document.createElement("div");
-            squareElement.classList.add("square", (rowindex + squareindex)%2 == 0 ? "light":"dark");
+            squareElement.classList.add("square", (rowindex + squareindex) % 2 === 0 ? "light" : "dark");
             squareElement.dataset.row = rowindex;
             squareElement.dataset.column = squareindex;
 
-            if(square){
+            if (square) {
                 const pieceElement = document.createElement("div");
-                pieceElement.classList.add("piece", 
-                    square.color == 'w' ? "white":"black"
-                );
+                pieceElement.classList.add("piece", square.color === 'w' ? "white" : "black");
                 pieceElement.innerText = getPieceUnicode(square);
                 pieceElement.draggable = playerRole === square.color;
 
                 pieceElement.addEventListener("dragstart", (e) => {
-                    if(pieceElement.draggable){
+                    if (pieceElement.draggable) {
                         draggedPiece = pieceElement;
-                        sourceSquare = {row: rowindex, col: squareindex};
+                        sourceSquare = { row: rowindex, col: squareindex };
                         e.dataTransfer.setData("text/plain", "");
                     }
                 });
 
-                pieceElement.addEventListener("dragend", (e) => {
+                pieceElement.addEventListener("dragend", () => {
                     draggedPiece = null;
                     sourceSquare = null;
                 });
 
                 squareElement.appendChild(pieceElement);
             }
-            
-            squareElement.addEventListener("dragover", function (e){
+
+            squareElement.addEventListener("dragover", (e) => {
                 e.preventDefault();
             });
 
-            squareElement.addEventListener("drop", function (e){
+            squareElement.addEventListener("drop", (e) => {
                 e.preventDefault();
-                if(draggedPiece){
-                    const targetSource = {
+                if (draggedPiece) {
+                    const targetSquare = {
                         row: parseInt(squareElement.dataset.row),
-                        col: parseInt(squareElement.dataset.col),
-                    }
-                    handleMove(sourceSquare, targetSource);
+                        col: parseInt(squareElement.dataset.column),
+                    };
+                    handleMove(sourceSquare, targetSquare);
                 }
             });
+
             boardElement.appendChild(squareElement);
         });
     });
 
-    if(playerRole === "b"){
+    if (playerRole === "b") {
         boardElement.classList.add("flipped");
-    } else{
+    } else {
         boardElement.classList.remove("flipped");
     }
 };
+
 const handleMove = (source, target) => {
     const move = {
         from: `${String.fromCharCode(97 + source.col)}${8 - source.row}`,
@@ -73,21 +72,21 @@ const handleMove = (source, target) => {
     };
     socket.emit("move", move);
 };
+
 const getPieceUnicode = (piece) => {
     const unicodePieces = {
         p: "♙",
-        r: "♖", 
+        r: "♖",
         n: "♘",
         b: "♗",
         q: "♕",
-        //k: "&#9812",
         k: "♔",
-        P: "♟", //"&#9823",
-        R: "♜", //"&#9820",
-        N: "♞", //"&#9822",
-        B: "♝", //"&#9821",
-        Q: "♛", //"&#9819",
-        K: "♚", //"&#9818",
+        P: "♟",
+        R: "♜",
+        N: "♞",
+        B: "♝",
+        Q: "♛",
+        K: "♚",
     };
     return unicodePieces[piece.type] || "";
 };
@@ -95,22 +94,15 @@ const getPieceUnicode = (piece) => {
 socket.on("currentPlayer", function(role) {
     playerRole = role;
     renderBoard();
-    // Ensure draggable pieces are updated based on player role
-    const pieces = document.querySelectorAll('.piece');
-    pieces.forEach(piece => {
-        piece.draggable = playerRole === piece.classList.contains('white') ? 'w' : 'b';
-    });
 });
-socket.on("spectatorView", function(){
-    playerRole = null;
-    renderBoard();
-});
-socket.on("boardPosition", function(fen){
-    chess.load(fen);
-    renderBoard();
-});
-socket.on("move", function(move){
+
+socket.on("move", function(move) {
     chess.move(move);
+    renderBoard();
+});
+
+socket.on("boardPosition", function(fen) {
+    chess.load(fen);
     renderBoard();
 });
 

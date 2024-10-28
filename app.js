@@ -48,19 +48,28 @@ io.on("connection", function(mainsocket) {
             // Corrected player turn checks
             if ((chess.turn() == 'w' && mainsocket.id !== players.white) || 
                 (chess.turn() == 'b' && mainsocket.id !== players.black)) return;
-
+    
             const result = chess.move(move);
             if (result) {
                 presentPlayer = chess.turn();
                 io.emit("move", move);
                 io.emit("boardPosition", chess.fen());
+    
+                // Emit the current turn after a move
+                io.emit("currentTurn", chess.turn()); // Emit the current turn
+    
+                // Check for game over or player elimination
+                if (chess.isGameOver()) {
+                    const winner = chess.turn() === 'w' ? 'b' : 'w'; // Determine the winner
+                    io.emit("playerWon", winner); // Emit the winner to all clients
+                }
             } else {
                 console.log("Wrong move:", move);
                 mainsocket.emit("wrongMove", move); // Corrected to mainsocket
             }
         } catch (err) {
             console.log(err);
-            mainsocket.emit("Wrong move: ", move); // Corrected to mainsocket
+            mainsocket.emit("wrongMove", move); // Corrected to mainsocket
         }
     });
 });

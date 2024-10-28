@@ -1,10 +1,13 @@
 const socket = io();
 const chess = new Chess();
 const boardElement = document.querySelector(".chessboard");
+const statusElement = document.getElementById("status"); // Element to display current turn
+const eliminationStatusElement = document.getElementById("eliminationStatus"); // Element to display elimination status
 
 let draggedPiece = null;
 let sourceSquare = null;
 let playerRole = null;
+let availableMoves = []; // Array to hold available moves
 
 const renderBoard = () => {
     const board = chess.board();
@@ -27,12 +30,14 @@ const renderBoard = () => {
                         draggedPiece = pieceElement;
                         sourceSquare = { row: rowindex, col: squareindex };
                         e.dataTransfer.setData("text/plain", "");
+                        highlightAvailableMoves(square); // Highlight available moves
                     }
                 });
 
                 pieceElement.addEventListener("dragend", () => {
                     draggedPiece = null;
                     sourceSquare = null;
+                    clearHighlights(); // Clear highlights on drag end
                 });
 
                 squareElement.appendChild(pieceElement);
@@ -64,6 +69,34 @@ const renderBoard = () => {
     }
 };
 
+const highlightAvailableMoves = (square) => {
+    // Clear previous highlights
+    clearHighlights();
+
+    // Get the available moves for the selected piece
+    const pieceSquare = `${String.fromCharCode(97 + sourceSquare.col)}${8 - sourceSquare.row}`; // Get the square of the piece being dragged
+    const moves = chess.moves({ square: pieceSquare, verbose: true }); // Get available moves for the piece
+    availableMoves = moves.map(move => move.to); // Store available moves
+
+    // Highlight the squares for available moves
+    availableMoves.forEach(move => {
+        const [col, row] = move.split('');
+        const squareElement = boardElement.querySelector(`[data-column="${col.charCodeAt(0) - 97}"][data-row="${8 - parseInt(row)}"]`);
+        if (squareElement) {
+            squareElement.classList.add("highlight"); // Add highlight class
+        }
+    });
+};
+
+const clearHighlights = () => {
+    // Clear highlights from all squares
+    const highlightedSquares = boardElement.querySelectorAll(".highlight");
+    highlightedSquares.forEach(square => {
+        square.classList.remove("highlight");
+    });
+    availableMoves = []; // Clear available moves
+};
+
 const handleMove = (source, target) => {
     const move = {
         from: `${String.fromCharCode(97 + source.col)}${8 - source.row}`,
@@ -93,7 +126,13 @@ const getPieceUnicode = (piece) => {
 
 socket.on("currentPlayer", function(role) {
     playerRole = role;
+    statusElement.innerText = `Current Turn: ${role === 'w' ? 'White' : 'Black'}`; // Update status
     renderBoard();
+});
+
+// Listen for current turn updates
+socket.on("currentTurn", function(turn) {
+    statusElement.innerText = `Current Turn: ${turn === 'w' ? 'White' : 'Black'}`; // Update status
 });
 
 socket.on("move", function(move) {
@@ -104,6 +143,11 @@ socket.on("move", function(move) {
 socket.on("boardPosition", function(fen) {
     chess.load(fen);
     renderBoard(); // Ensure the board is re-rendered after loading a position
+});
+
+// Function to handle player elimination
+socket.on("playerEliminated", function(player) {
+    eliminationStatusElement.innerText = `${player === 'w' ? 'White' : 'Black'} has been eliminated!`;
 });
 
 renderBoard(); // Initial render

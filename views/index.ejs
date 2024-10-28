@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>RealTime Chess</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .chessboard {
@@ -38,6 +38,10 @@
             background-color: #f0d9b5;
         }
 
+        .square.highlight {
+            background-color: rgba(255, 255, 0, 0.5); /* Yellow highlight */
+        }
+
         .square.dark {
             background-color: #b58863;
         }
@@ -59,10 +63,27 @@
         .flipped .piece {
             transform: rotate(180deg);
         }
+
+        /* Status display styles */
+        #status {
+            color: white;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+
+        #eliminationStatus {
+            color: red;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
     </style>
 </head>
 <body>
     <h1>Main Page</h1>
+    <div id="status">Current Turn: White</div> <!-- Status display for current turn -->
+    <div id="eliminationStatus"></div> <!-- Status display for eliminations -->
     <div class="w-full h-screen flex items-center justify-center bg-zinc-900">
         <div class="chessboard w-96 h-96 bg-red-800"></div>
     </div>

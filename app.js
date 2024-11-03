@@ -1,43 +1,40 @@
+// app.js
 const path = require('path');
-
 const express = require('express');
+const http = require('http');
+const { Chess } = require('chess.js');
+const socket = require('socket.io');
 
 const app = express();
 const port = 3000;
-const http = require('http');
-const {Chess} = require('chess.js');
-const socket = require('socket.io');
 const server = http.createServer(app);
 const io = socket(server);
 
 const chess = new Chess();
-let players = {}
-let presentPlayer = "w";
+let players = {};
 
-
+// Set up view engine and static files
 app.set("view engine", "ejs");
 app.use(express.static(path.join(__dirname, "public")));
 
-io.on("connection", function(mainsocket) {
+// Handle socket connections
+io.on("connection", (mainsocket) => {
     console.log("Connected");
 
-    if(!players.white){
+    if (!players.white) {
         players.white = mainsocket.id;
         mainsocket.emit("currentPlayer", "w");
-    } 
-    else if(!players.black){
+    } else if (!players.black) {
         players.black = mainsocket.id;
         mainsocket.emit("currentPlayer", "b");
-    }
-    else{
+    } else {
         mainsocket.emit("spectatorView");
     }
 
-    mainsocket.on("disconnect", function(){ // Changed from "disconnected" to "disconnect"
-        if(mainsocket.id == players.white){
+    mainsocket.on("disconnect", () => {
+        if (mainsocket.id === players.white) {
             delete players.white;
-        }
-        else if(mainsocket.id == players.black){
+        } else if (mainsocket.id === players.black) {
             delete players.black;
         }
     });
@@ -45,39 +42,36 @@ io.on("connection", function(mainsocket) {
     mainsocket.on("move", (move) => {
         console.log(move);
         try {
-            // Corrected player turn checks
-            if ((chess.turn() == 'w' && mainsocket.id !== players.white) || 
-                (chess.turn() == 'b' && mainsocket.id !== players.black)) return;
-    
+            if ((chess.turn() === 'w' && mainsocket.id !== players.white) || 
+                (chess.turn() === 'b' && mainsocket.id !== players.black)) return;
+
             const result = chess.move(move);
             if (result) {
-                presentPlayer = chess.turn();
                 io.emit("move", move);
                 io.emit("boardPosition", chess.fen());
-    
-                // Emit the current turn after a move
-                io.emit("currentTurn", chess.turn()); // Emit the current turn
-    
-                // Check for game over or player elimination
+                io.emit("currentTurn", chess.turn());
+
                 if (chess.isGameOver()) {
-                    const winner = chess.turn() === 'w' ? 'b' : 'w'; // Determine the winner
-                    io.emit("playerWon", winner); // Emit the winner to all clients
+                    const winner = chess.turn() === 'w' ? 'b' : 'w';
+                    io.emit("playerWon", winner);
                 }
             } else {
                 console.log("Wrong move:", move);
-                mainsocket.emit("wrongMove", move); // Corrected to mainsocket
+                mainsocket.emit("wrongMove", move);
             }
         } catch (err) {
             console.log(err);
-            mainsocket.emit("wrongMove", move); // Corrected to mainsocket
+            mainsocket.emit("wrongMove", move);
         }
     });
 });
 
+// Serve the main page
 app.get("/", (req, res) => {
-    res.render("index", {title: "RealTime Chess"});
-})
+    res.render("index", { title: "RealTime Chess" });
+});
 
-server.listen(port, function() {
+// Start the server
+server.listen(port, () => {
     console.log(`Server Running on http://localhost:${port}`);
 });

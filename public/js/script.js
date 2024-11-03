@@ -1,4 +1,3 @@
-// public/js/script.js
 const socket = io();
 const chess = new Chess();
 const boardElement = document.querySelector(".chessboard");
@@ -43,9 +42,13 @@ const createSquareElement = (rowIndex, colIndex, square) => {
         squareElement.appendChild(pieceElement);
     }
 
-    // Set up drag-and-drop event listeners
+    // Set up drag-and-drop event listeners for desktop
     squareElement.addEventListener("dragover", (e) => e.preventDefault());
     squareElement.addEventListener("drop", (e) => handleDrop(e, rowIndex, colIndex));
+
+    // Set up touch event listeners for mobile
+    squareElement.addEventListener("touchstart", (e) => handleTouchStart(e, { row: rowIndex, col: colIndex }));
+    squareElement.addEventListener("touchend", (e) => handleTouchEnd(e, rowIndex, colIndex));
 
     // Ensure the square object is passed correctly to handleDragStart
     squareElement.addEventListener("dragstart", (e) => handleDragStart(e, { row: rowIndex, col: colIndex })); // Pass the row and col
@@ -60,9 +63,8 @@ const createPieceElement = (square) => {
     pieceElement.innerText = getPieceUnicode(square);
     pieceElement.draggable = playerRole === square.color;
 
-    // Set up drag event listeners
-    pieceElement.addEventListener("dragstart", (e) => handleDragStart(e, square)); // Ensure 'square' is passed
-    pieceElement.addEventListener("dragend", clearDrag);
+    // Set up touch event listeners for mobile tapping
+    pieceElement.addEventListener("touchstart", (e) => handlePieceTap(e, square));
 
     return pieceElement;
 };
@@ -85,7 +87,21 @@ const handleMove = (source, target) => {
         to: `${String.fromCharCode(97 + target.col)}${8 - target.row}`,
         promotion: 'q', // Assuming promotion to queen
     };
-    socket.emit("move", move);
+
+    // Validate the move
+    const moveResult = chess.move(move);
+    const statusMessageElement = document.getElementById("statusMessage"); // Get the status message element
+
+    if (moveResult) {
+        socket.emit("move", move);
+        if (statusMessageElement) {
+            statusMessageElement.innerText = ""; // Clear any previous messages
+        }
+    } else {
+        if (statusMessageElement) {
+            statusMessageElement.innerText = "Invalid move! Please try again."; // Update the UI with the invalid move message
+        }
+    }
 };
 
 // Handle the drop event
@@ -109,6 +125,8 @@ const highlightAvailableMoves = () => {
         const squareElement = boardElement.querySelector(`[data-column="${col.charCodeAt(0) - 97}"][data-row="${8 - parseInt(row)}"]`);
         if (squareElement) {
             squareElement.classList.add("highlight");
+            // Add touch event listener to highlighted squares
+            squareElement.addEventListener("touchstart", (e) => handleTouchEnd(e));
         }
     });
 };
@@ -116,12 +134,21 @@ const highlightAvailableMoves = () => {
 // Clear highlights from all squares
 const clearHighlights = () => {
     const highlightedSquares = boardElement.querySelectorAll(".highlight");
-    highlightedSquares.forEach(square => square.classList.remove("highlight"));
+    highlightedSquares.forEach(square => {
+        square.classList.remove("highlight");
+        // Remove touch event listener from highlighted squares
+        square.removeEventListener("touchstart", (e) => handleTouchEnd(e));
+    });
     availableMoves = [];
 };
 
 // Clear the drag state
 const clearDrag = () => {
+    if (draggedPiece) {
+        draggedPiece.style.position = ''; // Reset position
+        draggedPiece.style.left = ''; // Reset left
+        draggedPiece.style.top = ''; // Reset top
+    }
     draggedPiece = null;
     sourceSquare = null;
     clearHighlights();
@@ -141,30 +168,89 @@ const updateBoardOrientation = () => {
     boardElement.classList.toggle("flipped", playerRole === "b");
 };
 
+// Check for game over
+const checkGameOver = () => {
+    if (chess.in_checkmate()) {
+        alert("Checkmate! Game over.");
+    } else if (chess.in_stalemate()) {
+        alert("Stalemate! Game over.");
+    }
+};
+
+// Handle touch start event
+const handleTouchStart = (e, square) => {
+    e.preventDefault(); // Prevent default touch behavior (scrolling)
+    sourceSquare = { row: square.row, col: square.col }; // Use the passed row and col
+    highlightAvailableMoves(); // Highlight available moves
+};
+
+// Handle touch end event for moving the piece
+const handleTouchEnd = (e) => {
+    e.preventDefault(); // Prevent default touch behavior (scrolling)
+    const targetSquare = getTargetSquare(e.changedTouches[0]); // Get the target square based on touch position
+    if (targetSquare) {
+        handleMove(sourceSquare, targetSquare); // Move the piece
+    }
+    clearDrag(); // Clear the drag state
+};
+
+// Get the target square based on touch position
+const getTargetSquare = (touch) => {
+    const squareElements = document.querySelectorAll('.square');
+    for (let squareElement of squareElements) {
+        const rect = squareElement.getBoundingClientRect();
+        if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
+            touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+            return { row: squareElement.dataset.row, col: squareElement.dataset.column };
+        }
+    }
+    return null; // No target square found
+};
+
+// Prevent scrolling on touchmove
+document.addEventListener('touchmove', (e) => {
+    e.preventDefault(); // Prevent scrolling while dragging
+}, { passive: false });
+
 // Setup socket event listeners
 const setupSocketListeners = () => {
+    // Notify players of the current player
     socket.on("currentPlayer", (role) => {
         playerRole = role;
         statusElement.innerText = `Current Turn: ${role === 'w' ? 'White' : 'Black'}`;
         renderBoard();
     });
 
+    // Notify player of current turns
     socket.on("currentTurn", (turn) => {
         statusElement.innerText = `Current Turn: ${turn === 'w' ? 'White' : 'Black'}`;
     });
 
+    // Update socket listener for moves
     socket.on("move", (move) => {
         chess.move(move);
         renderBoard();
+        checkGameOver();
     });
 
+    // Updates the board position
     socket.on("boardPosition", (fen) => {
         chess.load(fen);
         renderBoard();
     });
 
+    // Updates elimination of players
     socket.on("playerEliminated", (player) => {
         eliminationStatusElement.innerText = `${player === 'w' ? 'White' : 'Black'} has been eliminated!`;
+    });
+
+    // Handles player disconnection
+    socket.on("playerDisconnected", (player) => {
+        alert(`${player} has disconnected`);
+    });
+
+    socket.on("reconnect", () => {
+        alert("You have reconnected to the game.");
     });
 };
 

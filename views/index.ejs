@@ -6,13 +6,35 @@
     <title>RealTime Chess</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* (mobile devices) */
+        @media (max-width: 600px) {
+            .piece {
+                font-size: 1.5rem; /* Smaller pieces on mobile */
+            }
+
+            .status-message {
+                font-size: 1rem; /* Smaller status message */
+            }
+        }
+
+        /* (very small screens) */
+        @media (max-width: 400px) {
+            .piece {
+                font-size: 1.2rem; /* Even smaller pieces */
+            }
+
+            .status-message {
+                font-size: 0.9rem; /* Smaller status message */
+            }
+        }
+
         .chessboard {
+            aspect-ratio: 1; /* Maintain a square aspect ratio */
             display: grid;
-            grid-template-columns: repeat(8, minmax(0, 1fr));
-            grid-template-rows: repeat(8, minmax(0, 1fr));
-            width: 400px;
-            height: 400px;
-            transform: rotate(0deg);
+            grid-template-columns: repeat(8, 1fr); /* 8 columns for the chessboard */
+            margin: auto; /* Center the board */
+            max-width: 600px; /* Maximum width for larger screens */
+            width: 100%; /* Full width */
         }
 
         .piece.white {
@@ -28,14 +50,23 @@
             transform: rotate(180deg);
         }
 
+        /* Styles for squares */
         .square {
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            padding-top: 100%; /* Maintain square aspect ratio */
+            position: relative; /* Position for absolute children */
+            width: 100%; /* Full width of the grid cell */
         }
 
         .square.light {
             background-color: #f0d9b5;
+        }
+
+        .light{
+            background-color: #eee;
+        }
+
+        .dark{
+            background-color: #777;
         }
 
         .highlight {
@@ -48,13 +79,26 @@
             background-color: #b58863;
         }
 
+        /* Styles for pieces */
         .piece {
-            font-size: 36px;
-            cursor: pointer;
+            align-items: center;
+            display: flex;
+            font-size: 2rem;
+            height: 100%; /* Full height of the square */
+            justify-content: center;
+            left: 0;
+            position: absolute;
+            top: 0;
+            width: 100%; /* Full width of the square */
         }
 
         .piece.draggable {
             cursor: grab;
+        }
+
+        .piece.dragging {
+            opacity: 0.5; /* Make the piece semi-transparent while dragging */
+            transition: none; /* Disable transitions for smoother dragging */
         }
 
         .dragging {
@@ -65,27 +109,33 @@
         .flipped .piece {
             transform: rotate(180deg);
         }
+ 
+        .status-message {
+            font-size: 1.2rem; /* Adjust font size for mobile */
+            margin: 10px 0;
+            text-align: center;
+        }
 
         /* Status display styles */
         #status {
             color: black;
-            text-align: center;
-            margin-bottom: 20px;
             font-size: 18px;
+            margin-bottom: 20px;
+            text-align: center;
         }
 
         #eliminationStatus {
             color: red;
-            text-align: center;
-            margin-bottom: 20px;
             font-size: 18px;
+            margin-bottom: 20px;
+            text-align: center;
         }
     </style>
 </head>
 <body>
-    <h1>Main Page</h1>
     <div id="status">Current Turn: White</div> <!-- Status display for current turn -->
     <div id="eliminationStatus"></div> <!-- Status display for eliminations -->
+    <div id="statusMessage" class="status-message"></div>
     <div class="w-full h-screen flex items-center justify-center bg-zinc-900">
         <div class="chessboard w-96 h-96 bg-red-800"></div>
     </div>

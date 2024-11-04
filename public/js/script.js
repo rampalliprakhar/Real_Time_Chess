@@ -63,10 +63,31 @@ const createPieceElement = (square) => {
     pieceElement.innerText = getPieceUnicode(square);
     pieceElement.draggable = playerRole === square.color;
 
+    // Add row and col to the piece element's dataset
+    pieceElement.dataset.row = square.row;
+    pieceElement.dataset.col = square.col;
+
     // Set up touch event listeners for mobile tapping
-    pieceElement.addEventListener("touchstart", (e) => handlePieceTap(e, square));
+    pieceElement.addEventListener("touchstart", (e) => {
+        if (playerRole === square.color) {  // Only allow if it's the player's turn
+            handlePieceTap(e, { row: parseInt(pieceElement.closest('.square').dataset.row), 
+                              col: parseInt(pieceElement.closest('.square').dataset.column) });
+        }
+    });
 
     return pieceElement;
+};
+
+// Handle piece tap event
+const handlePieceTap = (e, square) => {
+    e.preventDefault(); // Prevent default touch behavior
+    e.stopPropagation(); // Stop event from bubbling to parent elements
+    
+    if (!square) return;
+    
+    sourceSquare = { row: square.row, col: square.col };
+    console.log('Piece tapped:', sourceSquare); // Debug log
+    highlightAvailableMoves();
 };
 
 // Handle the start of a drag event
@@ -79,27 +100,36 @@ const handleDragStart = (e, square) => {
     }
 };
 
-// Handle the move logic
 const handleMove = (source, target) => {
-    if (!source || !target) return; // Check if source and target are defined
+    if (!source || !target) {
+        console.log('Invalid move: missing source or target'); // Debug log
+        return;
+    }
+
+    // Check if it's the player's turn
+    const piece = chess.get(`${String.fromCharCode(97 + source.col)}${8 - source.row}`);
+    if (!piece || piece.color !== playerRole) {
+        console.log('Invalid move: not your turn or piece'); // Debug log
+        return;
+    }
+
     const move = {
         from: `${String.fromCharCode(97 + source.col)}${8 - source.row}`,
         to: `${String.fromCharCode(97 + target.col)}${8 - target.row}`,
-        promotion: 'q', // Assuming promotion to queen
+        promotion: 'q',
     };
 
-    // Validate the move
-    const moveResult = chess.move(move);
-    const statusMessageElement = document.getElementById("statusMessage"); // Get the status message element
+    console.log('Attempting move:', move); // Debug log
 
+    const moveResult = chess.move(move);
     if (moveResult) {
         socket.emit("move", move);
-        if (statusMessageElement) {
-            statusMessageElement.innerText = ""; // Clear any previous messages
-        }
+        renderBoard();
     } else {
+        console.log('Invalid move:', move); // Debug log
+        const statusMessageElement = document.getElementById("statusMessage");
         if (statusMessageElement) {
-            statusMessageElement.innerText = "Invalid move! Please try again."; // Update the UI with the invalid move message
+            statusMessageElement.innerText = "Invalid move! Please try again.";
         }
     }
 };
@@ -113,20 +143,26 @@ const handleDrop = (e, rowIndex, colIndex) => {
     }
 };
 
-// Highlight available moves for the selected piece
 const highlightAvailableMoves = () => {
     clearHighlights();
+    
+    if (!sourceSquare) return;
+    
     const pieceSquare = `${String.fromCharCode(97 + sourceSquare.col)}${8 - sourceSquare.row}`;
+    console.log('Highlighting moves for square:', pieceSquare); // Debug log
+    
     const moves = chess.moves({ square: pieceSquare, verbose: true });
     availableMoves = moves.map(move => move.to);
+    
+    console.log('Available moves:', availableMoves); // Debug log
 
     availableMoves.forEach(move => {
         const [col, row] = move.split('');
-        const squareElement = boardElement.querySelector(`[data-column="${col.charCodeAt(0) - 97}"][data-row="${8 - parseInt(row)}"]`);
+        const squareElement = boardElement.querySelector(
+            `[data-column="${col.charCodeAt(0) - 97}"][data-row="${8 - parseInt(row)}"]`
+        );
         if (squareElement) {
             squareElement.classList.add("highlight");
-            // Add touch event listener to highlighted squares
-            squareElement.addEventListener("touchstart", (e) => handleTouchEnd(e));
         }
     });
 };
@@ -179,19 +215,33 @@ const checkGameOver = () => {
 
 // Handle touch start event
 const handleTouchStart = (e, square) => {
-    e.preventDefault(); // Prevent default touch behavior (scrolling)
-    sourceSquare = { row: square.row, col: square.col }; // Use the passed row and col
-    highlightAvailableMoves(); // Highlight available moves
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Only proceed if we're touching a piece
+    const pieceElement = e.target.closest('.piece');
+    if (!pieceElement) return;
+    
+    sourceSquare = { row: parseInt(square.row), col: parseInt(square.col) };
+    console.log('Touch start:', sourceSquare); // Debug log
+    highlightAvailableMoves();
 };
 
-// Handle touch end event for moving the piece
-const handleTouchEnd = (e) => {
-    e.preventDefault(); // Prevent default touch behavior (scrolling)
-    const targetSquare = getTargetSquare(e.changedTouches[0]); // Get the target square based on touch position
-    if (targetSquare) {
-        handleMove(sourceSquare, targetSquare); // Move the piece
+// Handle touch end event
+const handleTouchEnd = (e, rowIndex, colIndex) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!sourceSquare) return;
+    
+    const targetSquare = { row: parseInt(rowIndex), col: parseInt(colIndex) };
+    console.log('Touch end:', targetSquare); // Debug log
+    
+    if (availableMoves.includes(`${String.fromCharCode(97 + targetSquare.col)}${8 - targetSquare.row}`)) {
+        handleMove(sourceSquare, targetSquare);
     }
-    clearDrag(); // Clear the drag state
+    
+    clearDrag();
 };
 
 // Get the target square based on touch position
@@ -211,6 +261,12 @@ const getTargetSquare = (touch) => {
 document.addEventListener('touchmove', (e) => {
     e.preventDefault(); // Prevent scrolling while dragging
 }, { passive: false });
+
+// Add at the start of your file
+const DEBUG = true;
+const log = (...args) => {
+    if (DEBUG) console.log(...args);
+};
 
 // Setup socket event listeners
 const setupSocketListeners = () => {

@@ -6,7 +6,6 @@ const { Chess } = require('chess.js');
 const socket = require('socket.io');
 
 const app = express();
-const port = 3000;
 const server = http.createServer(app);
 const io = socket(server);
 
@@ -72,6 +71,7 @@ app.get("/", (req, res) => {
 });
 
 // Start the server
-server.listen(port, () => {
-    console.log(`Server Running on http://localhost:${port}`);
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });

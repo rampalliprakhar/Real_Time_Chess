@@ -273,31 +273,23 @@ class ChessGame {
     }
 
     handleTouchStart(e, square) {
-        e.preventDefault();
-        e.stopPropagation();
-        
         const pieceElement = e.target.closest('.piece');
         if (!pieceElement) return;
         
-        // Check if it's the player's turn and piece
         const piece = this.game.get(`${String.fromCharCode(97 + square.col)}${8 - square.row}`);
         if (!piece || piece.color !== this.playerRole) return;
         
         this.draggedPiece = pieceElement;
-        this.sourceSquare = { row: parseInt(square.row), col: parseInt(square.col) };
+        this.sourceSquare = square;
         this.highlightAvailableMoves();
     }
     
     handleTouchEnd(e, rowIndex, colIndex) {
-        e.preventDefault();
-        e.stopPropagation();
-        
         if (!this.sourceSquare) return;
         
-        const targetSquare = { row: parseInt(rowIndex), col: parseInt(colIndex) };
+        const targetSquare = { row: rowIndex, col: colIndex };
         const targetNotation = `${String.fromCharCode(97 + targetSquare.col)}${8 - targetSquare.row}`;
         
-        // Check if the target square is in available moves
         if (this.availableMoves.includes(targetNotation)) {
             this.handleMove(this.sourceSquare, targetSquare);
         }

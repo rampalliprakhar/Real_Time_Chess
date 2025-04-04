@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>RealTime Chess</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -19,8 +19,10 @@
 
         @media (max-width: 768px) {
             .chessboard {
-                width: 95vw;
-                height: 95vw;
+                width: 100%;
+                max-width: 90vmin;
+                height: 90vmin;
+                margin: 0 auto;
             }
             
             .piece {
@@ -83,6 +85,8 @@
             padding-top: 100%; /* Maintain square aspect ratio */
             position: relative; /* Position for absolute children */
             width: 100%; /* Full width of the grid cell */
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .square.light {
@@ -117,7 +121,10 @@
             left: 0;
             position: absolute;
             top: 0;
+            touch-action: none;
             width: 100%; /* Full width of the square */
+            -webkit-user-select: none;
+            user-select: none;
         }
 
         .piece.draggable {

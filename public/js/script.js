@@ -279,11 +279,32 @@ class ChessGame {
         const piece = this.game.get(`${String.fromCharCode(97 + square.col)}${8 - square.row}`);
         if (!piece || piece.color !== this.playerRole) return;
         
+        // Tracking the initial touch position
+        const touch = e.touches[0];
+        pieceElement.style.position = 'absolute';
+        pieceElement.style.zIndex = 1000;
+        
+        // Storing initial positions
+        this.touchOffset = {
+            x: touch.clientX - pieceElement.offsetLeft,
+            y: touch.clientY - pieceElement.offsetTop
+        };
+        
         this.draggedPiece = pieceElement;
         this.sourceSquare = square;
         this.highlightAvailableMoves();
+        
+        document.addEventListener('touchmove', this.handleTouchMove.bind(this));
     }
     
+    handleTouchMove(e) {
+        if (!this.draggedPiece) return;
+        
+        const touch = e.touches[0];
+        this.draggedPiece.style.left = `${touch.clientX - this.touchOffset.x}px`;
+        this.draggedPiece.style.top = `${touch.clientY - this.touchOffset.y}px`;
+    }
+
     handleTouchEnd(e, rowIndex, colIndex) {
         if (!this.sourceSquare) return;
         

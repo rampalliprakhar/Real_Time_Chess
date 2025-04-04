@@ -10,39 +10,59 @@ const server = http.createServer(app);
 const io = socket(server);
 
 const chess = new Chess();
-let players = {};
+let players = {
+    white: { id: null, name: "White Player" },
+    black: { id: null, name: "Black Player" }
+};
 
 // Set up view engine and static files
 app.set("view engine", "ejs");
 app.use(express.static(path.join(__dirname, "public")));
 
+// Tracking disconnected players and allowing reconnections for 30 seconds
+const reconnectionTimeout = 30000;
+
 // Handle socket connections
 io.on("connection", (mainsocket) => {
     console.log("Connected");
 
-    if (!players.white) {
-        players.white = mainsocket.id;
+    if (!players.white.id) {
+        players.white.id = mainsocket.id;
+        players.white.name = `Player ${Math.floor(Math.random() * 1000)}`;
         mainsocket.emit("currentPlayer", "w");
-    } else if (!players.black) {
-        players.black = mainsocket.id;
+        io.emit("updatePlayers", players);
+    } else if (!players.black.id) {
+        players.black.id = mainsocket.id;
+        players.black.name = `Player ${Math.floor(Math.random() * 1000)}`;
         mainsocket.emit("currentPlayer", "b");
+        io.emit("updatePlayers", players);
     } else {
         mainsocket.emit("spectatorView");
     }
 
     mainsocket.on("disconnect", () => {
-        if (mainsocket.id === players.white) {
-            delete players.white;
-        } else if (mainsocket.id === players.black) {
-            delete players.black;
+        if (mainsocket.id === players.white.id) {
+            setTimeout(() => {
+                if (!players.white.id) delete players.white;
+                io.emit("updatePlayers", players);                
+            }, reconnectionTimeout)
+        } else if (mainsocket.id === players.black.id) {
+            setTimeout(() => {
+                if (!players.black.id) delete players.black;
+                io.emit("updatePlayers", players);                
+            }, reconnectionTimeout)
         }
     });
 
     mainsocket.on("move", (move) => {
         console.log(move);
+        if (!isValidGameState(chess, move)) {
+            mainsocket.emit("invalidGameState");
+            return;
+        }
         try {
-            if ((chess.turn() === 'w' && mainsocket.id !== players.white) || 
-                (chess.turn() === 'b' && mainsocket.id !== players.black)) return;
+            if ((chess.turn() === 'w' && mainsocket.id !== players.white.id) || 
+                (chess.turn() === 'b' && mainsocket.id !== players.black.id)) return;
 
             const result = chess.move(move);
             if (result) {
@@ -62,6 +82,21 @@ io.on("connection", (mainsocket) => {
             console.log(err);
             mainsocket.emit("wrongMove", move);
         }
+    });
+
+    mainsocket.on("resign", () => {
+        const player = mainsocket.id === players.white.id ? "White" : "Black";
+        const winner = player === "White" ? "Black" : "White";
+        io.emit("gameEnd", { type: "resign", player, winner });
+    });
+    
+    mainsocket.on("drawOffer", () => {
+        const player = mainsocket.id === players.white.id ? "White" : "Black";
+        io.emit("drawOffer", player);
+    });
+    
+    mainsocket.on("drawAccepted", () => {
+        io.emit("gameEnd", { type: "draw" });
     });
 });
 

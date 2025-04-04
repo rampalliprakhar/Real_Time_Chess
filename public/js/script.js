@@ -4,311 +4,353 @@ const boardElement = document.querySelector(".chessboard");
 const statusElement = document.getElementById("status");
 const eliminationStatusElement = document.getElementById("eliminationStatus");
 
-let draggedPiece = null;
-let sourceSquare = null;
-let playerRole = null;
-let availableMoves = [];
+class ChessGame {
+    constructor() {
+        this.game = new Chess();
+        this.moveHistory = [];
+        this.capturedPieces = { w: [], b: [] };
+        this.timers = {
+            w: new GameTimer(300, 'white-time'),
+            b: new GameTimer(300, 'black-time')
+        };
+        this.playerRole = null;
+        this.draggedPiece = null;
+        this.sourceSquare = null;
+        this.availableMoves = [];
+    }
 
-// Initialize the chessboard
-const initBoard = () => {
-    renderBoard();
-    setupSocketListeners();
-};
+    start() {
+        this.renderBoard();
+        this.setupSocketListeners();
+        this.timers.w.start();
+    }
 
-// Render the chessboard
-const renderBoard = () => {
-    const board = chess.board();
-    boardElement.innerHTML = ""; // Clear the board before rendering
+    renderBoard() {
+        const board = this.game.board();
+        // Clear the board before rendering
+        boardElement.innerHTML = ""; 
 
-    board.forEach((row, rowIndex) => {
-        row.forEach((square, colIndex) => {
-            const squareElement = createSquareElement(rowIndex, colIndex, square);
-            boardElement.appendChild(squareElement);
+        board.forEach((row, rowIndex) => {
+            row.forEach((square, colIndex) => {
+                const squareElement = this.createSquareElement(rowIndex, colIndex, square);
+                boardElement.appendChild(squareElement);
+            });
         });
-    });
 
-    updateBoardOrientation();
-};
-
-// Create a square element
-const createSquareElement = (rowIndex, colIndex, square) => {
-    const squareElement = document.createElement("div");
-    squareElement.classList.add("square", (rowIndex + colIndex) % 2 === 0 ? "light" : "dark");
-    squareElement.dataset.row = rowIndex;
-    squareElement.dataset.column = colIndex;
-
-    if (square) {
-        const pieceElement = createPieceElement(square);
-        squareElement.appendChild(pieceElement);
+        this.updateBoardOrientation();
     }
 
-    // Set up drag-and-drop event listeners for desktop
-    squareElement.addEventListener("dragover", (e) => e.preventDefault());
-    squareElement.addEventListener("drop", (e) => handleDrop(e, rowIndex, colIndex));
-
-    // Set up touch event listeners for mobile
-    squareElement.addEventListener("touchstart", (e) => handleTouchStart(e, { row: rowIndex, col: colIndex }));
-    squareElement.addEventListener("touchend", (e) => handleTouchEnd(e, rowIndex, colIndex));
-
-    // Ensure the square object is passed correctly to handleDragStart
-    squareElement.addEventListener("dragstart", (e) => handleDragStart(e, { row: rowIndex, col: colIndex })); // Pass the row and col
-
-    return squareElement;
-};
-
-// Create a piece element
-const createPieceElement = (square) => {
-    const pieceElement = document.createElement("div");
-    pieceElement.classList.add("piece", square.color === 'w' ? "white" : "black");
-    pieceElement.innerText = getPieceUnicode(square);
-    pieceElement.draggable = playerRole === square.color;
-
-    // Add row and col to the piece element's dataset
-    pieceElement.dataset.row = square.row;
-    pieceElement.dataset.col = square.col;
-
-    // Set up touch event listeners for mobile tapping
-    pieceElement.addEventListener("touchstart", (e) => {
-        if (playerRole === square.color) {  // Only allow if it's the player's turn
-            handlePieceTap(e, { row: parseInt(pieceElement.closest('.square').dataset.row), 
-                              col: parseInt(pieceElement.closest('.square').dataset.column) });
-        }
-    });
-
-    return pieceElement;
-};
-
-// Handle piece tap event
-const handlePieceTap = (e, square) => {
-    e.preventDefault(); // Prevent default touch behavior
-    e.stopPropagation(); // Stop event from bubbling to parent elements
-    
-    if (!square) return;
-    
-    sourceSquare = { row: square.row, col: square.col };
-    console.log('Piece tapped:', sourceSquare); // Debug log
-    highlightAvailableMoves();
-};
-
-// Handle the start of a drag event
-const handleDragStart = (e, square) => {
-    if (e.target.draggable && square) { // Check if 'square' is defined
-        draggedPiece = e.target;
-        sourceSquare = { row: square.row, col: square.col }; // Use the passed row and col
-        e.dataTransfer.setData("text/plain", "");
-        highlightAvailableMoves();
-    }
-};
-
-const handleMove = (source, target) => {
-    if (!source || !target) {
-        console.log('Invalid move: missing source or target'); // Debug log
-        return;
-    }
-
-    // Check if it's the player's turn
-    const piece = chess.get(`${String.fromCharCode(97 + source.col)}${8 - source.row}`);
-    if (!piece || piece.color !== playerRole) {
-        console.log('Invalid move: not your turn or piece'); // Debug log
-        return;
-    }
-
-    const move = {
-        from: `${String.fromCharCode(97 + source.col)}${8 - source.row}`,
-        to: `${String.fromCharCode(97 + target.col)}${8 - target.row}`,
-        promotion: 'q',
-    };
-
-    console.log('Attempting move:', move); // Debug log
-
-    const moveResult = chess.move(move);
-    if (moveResult) {
-        socket.emit("move", move);
-        renderBoard();
-    } else {
-        console.log('Invalid move:', move); // Debug log
-        const statusMessageElement = document.getElementById("statusMessage");
-        if (statusMessageElement) {
-            statusMessageElement.innerText = "Invalid move! Please try again.";
+    checkGameOver() {
+        if (this.game.in_checkmate()) {
+            alert("Checkmate! Game over.");
+        } else if (this.game.in_stalemate()) {
+            alert("Stalemate! Game over.");
         }
     }
-};
 
-// Handle the drop event
-const handleDrop = (e, rowIndex, colIndex) => {
-    e.preventDefault();
-    if (draggedPiece) {
-        const targetSquare = { row: rowIndex, col: colIndex };
-        handleMove(sourceSquare, targetSquare); // Ensure sourceSquare is defined
-    }
-};
+    createSquareElement(rowIndex, colIndex, square) {
+        const squareElement = document.createElement("div");
+        squareElement.classList.add("square", (rowIndex + colIndex) % 2 === 0 ? "light" : "dark");
+        squareElement.dataset.row = rowIndex;
+        squareElement.dataset.column = colIndex;
 
-const highlightAvailableMoves = () => {
-    clearHighlights();
-    
-    if (!sourceSquare) return;
-    
-    const pieceSquare = `${String.fromCharCode(97 + sourceSquare.col)}${8 - sourceSquare.row}`;
-    console.log('Highlighting moves for square:', pieceSquare); // Debug log
-    
-    const moves = chess.moves({ square: pieceSquare, verbose: true });
-    availableMoves = moves.map(move => move.to);
-    
-    console.log('Available moves:', availableMoves); // Debug log
-
-    availableMoves.forEach(move => {
-        const [col, row] = move.split('');
-        const squareElement = boardElement.querySelector(
-            `[data-column="${col.charCodeAt(0) - 97}"][data-row="${8 - parseInt(row)}"]`
-        );
-        if (squareElement) {
-            squareElement.classList.add("highlight");
+        if (square) {
+            const pieceElement = this.createPieceElement(square);
+            squareElement.appendChild(pieceElement);
         }
-    });
-};
 
-// Clear highlights from all squares
-const clearHighlights = () => {
-    const highlightedSquares = boardElement.querySelectorAll(".highlight");
-    highlightedSquares.forEach(square => {
-        square.classList.remove("highlight");
-        // Remove touch event listener from highlighted squares
-        square.removeEventListener("touchstart", (e) => handleTouchEnd(e));
-    });
-    availableMoves = [];
-};
+        squareElement.addEventListener("dragover", (e) => e.preventDefault());
+        squareElement.addEventListener("drop", (e) => this.handleDrop(e, rowIndex, colIndex));
+        squareElement.addEventListener("touchstart", (e) => this.handleTouchStart(e, { row: rowIndex, col: colIndex }));
+        squareElement.addEventListener("touchend", (e) => this.handleTouchEnd(e, rowIndex, colIndex));
+        squareElement.addEventListener("dragstart", (e) => this.handleDragStart(e, { row: rowIndex, col: colIndex }));
 
-// Clear the drag state
-const clearDrag = () => {
-    if (draggedPiece) {
-        draggedPiece.style.position = ''; // Reset position
-        draggedPiece.style.left = ''; // Reset left
-        draggedPiece.style.top = ''; // Reset top
+        return squareElement;
     }
-    draggedPiece = null;
-    sourceSquare = null;
-    clearHighlights();
-};
 
-// Get the Unicode representation of a piece
-const getPieceUnicode = (piece) => {
-    const unicodePieces = {
-        p: "♙", r: "♖", n: "♘", b: "♗", q: "♕", k: "♔",
-        P: "♟", R: "♜", N: "♞", B: "♝", Q: "♛", K: "♚",
-    };
-    return unicodePieces[piece.type] || "";
-};
+    createPieceElement(square) {
+        const pieceElement = document.createElement("div");
+        pieceElement.classList.add("piece", square.color === 'w' ? "white" : "black");
+        pieceElement.innerText = this.getPieceUnicode(square);
+        pieceElement.draggable = this.playerRole === square.color;
 
-// Update the board orientation based on the player role
-const updateBoardOrientation = () => {
-    boardElement.classList.toggle("flipped", playerRole === "b");
-};
+        pieceElement.dataset.row = square.row;
+        pieceElement.dataset.col = square.col;
 
-// Check for game over
-const checkGameOver = () => {
-    if (chess.in_checkmate()) {
-        alert("Checkmate! Game over.");
-    } else if (chess.in_stalemate()) {
-        alert("Stalemate! Game over.");
+        pieceElement.addEventListener("touchstart", (e) => {
+            if (this.playerRole === square.color) {
+                this.handlePieceTap(e, {
+                    row: parseInt(pieceElement.closest('.square').dataset.row),
+                    col: parseInt(pieceElement.closest('.square').dataset.column)
+                });
+            }
+        });
+
+        return pieceElement;
     }
-};
 
-// Handle touch start event
-const handleTouchStart = (e, square) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Only proceed if we're touching a piece
-    const pieceElement = e.target.closest('.piece');
-    if (!pieceElement) return;
-    
-    sourceSquare = { row: parseInt(square.row), col: parseInt(square.col) };
-    console.log('Touch start:', sourceSquare); // Debug log
-    highlightAvailableMoves();
-};
+    handleMove(source, target) {
+        if (!source || !target) return false;
 
-// Handle touch end event
-const handleTouchEnd = (e, rowIndex, colIndex) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (!sourceSquare) return;
-    
-    const targetSquare = { row: parseInt(rowIndex), col: parseInt(colIndex) };
-    console.log('Touch end:', targetSquare); // Debug log
-    
-    if (availableMoves.includes(`${String.fromCharCode(97 + targetSquare.col)}${8 - targetSquare.row}`)) {
-        handleMove(sourceSquare, targetSquare);
+        const piece = this.game.get(`${String.fromCharCode(97 + source.col)}${8 - source.row}`);
+        if (!piece || piece.color !== this.playerRole) return false;
+
+        const move = {
+            from: `${String.fromCharCode(97 + source.col)}${8 - source.row}`,
+            to: `${String.fromCharCode(97 + target.col)}${8 - target.row}`,
+            promotion: 'q'
+        };
+
+        const result = this.game.move(move);
+        if (result) {
+            this.moveHistory.push(move);
+            this.updateCapturedPieces(result);
+            this.switchTimer();
+            this.updateMoveHistory();
+            socket.emit('move', move);
+            this.renderBoard();
+            return true;
+        }
+
+        return false;
     }
-    
-    clearDrag();
-};
 
-// Get the target square based on touch position
-const getTargetSquare = (touch) => {
-    const squareElements = document.querySelectorAll('.square');
-    for (let squareElement of squareElements) {
-        const rect = squareElement.getBoundingClientRect();
-        if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
-            touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
-            return { row: squareElement.dataset.row, col: squareElement.dataset.column };
+    updateCapturedPieces(moveResult) {
+        if (moveResult.captured) {
+            const color = moveResult.color === 'w' ? 'b' : 'w';
+            this.capturedPieces[color].push(moveResult.captured);
+            this.renderCapturedPieces();
         }
     }
-    return null; // No target square found
-};
 
-// Prevent scrolling on touchmove
-document.addEventListener('touchmove', (e) => {
-    e.preventDefault(); // Prevent scrolling while dragging
-}, { passive: false });
+    updateMoveHistory() {
+        const movesContainer = document.getElementById('moves-list');
+        const moveNumber = Math.floor((this.moveHistory.length + 1) / 2);
+        const move = this.moveHistory[this.moveHistory.length - 1];
+        const moveElement = document.createElement('div');
+        moveElement.textContent = `${moveNumber}. ${move}`;
+        movesContainer.appendChild(moveElement);
+        movesContainer.scrollTop = movesContainer.scrollHeight;
+    }
 
-// Add at the start of your file
-const DEBUG = true;
-const log = (...args) => {
-    if (DEBUG) console.log(...args);
-};
+    switchTimer() {
+        const currentColor = this.game.turn();
+        this.timers[currentColor === 'w' ? 'b' : 'w'].stop();
+        this.timers[currentColor].start();
+    }
 
-// Setup socket event listeners
-const setupSocketListeners = () => {
-    // Notify players of the current player
-    socket.on("currentPlayer", (role) => {
-        playerRole = role;
-        statusElement.innerText = `Current Turn: ${role === 'w' ? 'White' : 'Black'}`;
-        renderBoard();
-    });
+    renderCapturedPieces() {
+        ['w', 'b'].forEach(color => {
+            const container = document.getElementById(`${color === 'w' ? 'white' : 'black'}-captured`);
+            container.innerHTML = this.capturedPieces[color]
+                .map(piece => this.getPieceUnicode({ type: piece, color }))
+                .join(' ');
+        });
+    }
 
-    // Notify player of current turns
-    socket.on("currentTurn", (turn) => {
-        statusElement.innerText = `Current Turn: ${turn === 'w' ? 'White' : 'Black'}`;
-    });
+    setupSocketListeners() {
+        socket.on("updatePlayers", (players) => {
+            document.getElementById("white-player").textContent = players.white.name;
+            document.getElementById("black-player").textContent = players.black.name;
+        });
 
-    // Update socket listener for moves
-    socket.on("move", (move) => {
-        chess.move(move);
-        renderBoard();
-        checkGameOver();
-    });
+        socket.on("currentPlayer", (role) => {
+            this.playerRole = role;
+            statusElement.innerText = `Current Turn: ${role === 'w' ? 'White' : 'Black'}`;
+            this.renderBoard();
+        });
 
-    // Updates the board position
-    socket.on("boardPosition", (fen) => {
-        chess.load(fen);
-        renderBoard();
-    });
+        socket.on("move", (move) => {
+            this.game.move(move);
+            this.renderBoard();
+            this.checkGameOver();
+        });
 
-    // Updates elimination of players
-    socket.on("playerEliminated", (player) => {
-        eliminationStatusElement.innerText = `${player === 'w' ? 'White' : 'Black'} has been eliminated!`;
-    });
+        socket.on("boardPosition", (fen) => {
+            this.game.load(fen);
+            this.renderBoard();
+        });
 
-    // Handles player disconnection
-    socket.on("playerDisconnected", (player) => {
-        alert(`${player} has disconnected`);
-    });
+        socket.on("playerWon", (winner) => {
+            alert(`${winner === 'w' ? 'White' : 'Black'} wins!`);
+        });
 
-    socket.on("reconnect", () => {
-        alert("You have reconnected to the game.");
-    });
-};
+        socket.on("drawOffer", (player) => {
+            if (confirm(`${player} offers a draw. Accept?`)) {
+                socket.emit("drawAccepted");
+            } else {
+                socket.emit("drawDeclined");
+            }
+        });
+        
+        socket.on("gameEnd", (result) => {
+            let message = "";
+            if (result.type === "resign") {
+                message = `${result.player} resigned. ${result.winner} wins!`;
+            } else if (result.type === "draw") {
+                message = "Game ended in a draw!";
+            }
+            alert(message);
+        });
+    }
 
-// Initialize the board on page load
-initBoard();
+    getPieceUnicode(piece) {
+        const unicodePieces = {
+            p: "♙", r: "♖", n: "♘", b: "♗", q: "♕", k: "♔",
+            P: "♟", R: "♜", N: "♞", B: "♝", Q: "♛", K: "♚"
+        };
+        return unicodePieces[piece.type] || "";
+    }
+
+    clearDrag() {
+        if (this.draggedPiece) {
+            this.draggedPiece.style.position = '';
+            this.draggedPiece.style.left = '';
+            this.draggedPiece.style.top = '';
+        }
+        this.draggedPiece = null;
+        this.sourceSquare = null;
+        this.clearHighlights();
+    }
+
+    clearHighlights() {
+        const highlightedSquares = boardElement.querySelectorAll(".highlight");
+        highlightedSquares.forEach(square => {
+            square.classList.remove("highlight");
+        });
+        this.availableMoves = [];
+    }
+
+    highlightAvailableMoves() {
+        this.clearHighlights();
+        
+        if (!this.sourceSquare) return;
+        
+        const pieceSquare = `${String.fromCharCode(97 + this.sourceSquare.col)}${8 - this.sourceSquare.row}`;
+        const moves = this.game.moves({ square: pieceSquare, verbose: true });
+        this.availableMoves = moves.map(move => move.to);
+    
+        this.availableMoves.forEach(move => {
+            const [col, row] = move.split('');
+            const squareElement = boardElement.querySelector(
+                `[data-column="${col.charCodeAt(0) - 97}"][data-row="${8 - parseInt(row)}"]`
+            );
+            if (squareElement) {
+                squareElement.classList.add("highlight");
+            }
+        });
+    }
+
+    updateBoardOrientation() {
+        boardElement.classList.toggle("flipped", this.playerRole === "b");
+    }
+
+    handleDrop(e, rowIndex, colIndex) {
+        e.preventDefault();
+        if (this.draggedPiece) {
+            const targetSquare = { row: rowIndex, col: colIndex };
+            this.handleMove(this.sourceSquare, targetSquare);
+        }
+    }
+
+    handlePieceTap(e, square) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (!square) return;
+        
+        this.sourceSquare = { row: square.row, col: square.col };
+        this.highlightAvailableMoves();
+    }
+
+    handleDragStart(e, square) {
+        if (e.target.draggable && square) {
+            this.draggedPiece = e.target;
+            this.sourceSquare = { row: square.row, col: square.col };
+            e.dataTransfer.setData("text/plain", "");
+            this.highlightAvailableMoves();
+        }
+    }
+
+    handleTouchStart(e, square) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const pieceElement = e.target.closest('.piece');
+        if (!pieceElement) return;
+        
+        this.sourceSquare = { row: parseInt(square.row), col: parseInt(square.col) };
+        this.highlightAvailableMoves();
+    }
+
+    handleTouchEnd(e, rowIndex, colIndex) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (!this.sourceSquare) return;
+        
+        const targetSquare = { row: parseInt(rowIndex), col: parseInt(colIndex) };
+        
+        if (this.availableMoves.includes(`${String.fromCharCode(97 + targetSquare.col)}${8 - targetSquare.row}`)) {
+            this.handleMove(this.sourceSquare, targetSquare);
+        }
+        
+        this.clearDrag();
+    }
+}
+
+class GameTimer {
+    constructor(seconds, displayId) {
+        this.initialTime = seconds;
+        this.remainingTime = seconds;
+        this.displayId = displayId;
+        this.interval = null;
+    }
+
+    start() {
+        if (this.interval) return;
+        
+        this.interval = setInterval(() => {
+            this.remainingTime--;
+            this.updateDisplay();
+            
+            if (this.remainingTime <= 0) {
+                this.stop();
+                this.timeUp();
+            }
+        }, 1000);
+    }
+
+    stop() {
+        if (this.interval) {
+            clearInterval(this.interval);
+            this.interval = null;
+        }
+    }
+
+    updateDisplay() {
+        const minutes = Math.floor(this.remainingTime / 60);
+        const seconds = this.remainingTime % 60;
+        document.getElementById(this.displayId).textContent = 
+            `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    timeUp() {
+        socket.emit('timeUp');
+    }
+}
+
+// Initialize and start the game
+const game = new ChessGame();
+game.start();
+
+// Initialize UI elements
+document.getElementById('resign-btn').addEventListener('click', () => {
+    if (confirm('Are you sure you want to resign?')) {
+        socket.emit('resign');
+    }
+});
+
+document.getElementById('draw-btn').addEventListener('click', () => {
+    socket.emit('drawOffer');
+});

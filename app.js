@@ -7,7 +7,14 @@ const socket = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = socket(server);
+const io = socket(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    },
+    pingTimeout: 60000,
+    transports: ['websocket', 'polling']
+});
 
 const chess = new Chess();
 let players = {

@@ -279,22 +279,9 @@ class ChessGame {
         const piece = this.game.get(`${String.fromCharCode(97 + square.col)}${8 - square.row}`);
         if (!piece || piece.color !== this.playerRole) return;
         
-        // Tracking the initial touch position
-        const touch = e.touches[0];
-        pieceElement.style.position = 'absolute';
-        pieceElement.style.zIndex = 1000;
-        
-        // Storing initial positions
-        this.touchOffset = {
-            x: touch.clientX - pieceElement.offsetLeft,
-            y: touch.clientY - pieceElement.offsetTop
-        };
-        
         this.draggedPiece = pieceElement;
         this.sourceSquare = square;
         this.highlightAvailableMoves();
-        
-        document.addEventListener('touchmove', this.handleTouchMove.bind(this));
     }
     
     handleTouchMove(e) {
@@ -309,12 +296,7 @@ class ChessGame {
         if (!this.sourceSquare) return;
         
         const targetSquare = { row: rowIndex, col: colIndex };
-        const targetNotation = `${String.fromCharCode(97 + targetSquare.col)}${8 - targetSquare.row}`;
-        
-        if (this.availableMoves.includes(targetNotation)) {
-            this.handleMove(this.sourceSquare, targetSquare);
-        }
-        
+        this.handleMove(this.sourceSquare, targetSquare);
         this.clearDrag();
     }
 }

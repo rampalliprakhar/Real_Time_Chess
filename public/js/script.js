@@ -245,14 +245,6 @@ class ChessGame {
         boardElement.classList.toggle("flipped", this.playerRole === "b");
     }
 
-    handleDrop(e, rowIndex, colIndex) {
-        e.preventDefault();
-        if (this.draggedPiece) {
-            const targetSquare = { row: rowIndex, col: colIndex };
-            this.handleMove(this.sourceSquare, targetSquare);
-        }
-    }
-
     handlePieceTap(e, square) {
         e.preventDefault();
         e.stopPropagation();
@@ -261,15 +253,6 @@ class ChessGame {
         
         this.sourceSquare = { row: square.row, col: square.col };
         this.highlightAvailableMoves();
-    }
-
-    handleDragStart(e, square) {
-        if (e.target.draggable && square) {
-            this.draggedPiece = e.target;
-            this.sourceSquare = { row: square.row, col: square.col };
-            e.dataTransfer.setData("text/plain", "");
-            this.highlightAvailableMoves();
-        }
     }
 
     handleTouchStart(e, square) {
@@ -284,14 +267,24 @@ class ChessGame {
         this.highlightAvailableMoves();
     }
     
-    handleTouchMove(e) {
-        if (!this.draggedPiece) return;
+    handleDragStart(e, square) {
+        if (!e.target.draggable) return;
         
-        const touch = e.touches[0];
-        this.draggedPiece.style.left = `${touch.clientX - this.touchOffset.x}px`;
-        this.draggedPiece.style.top = `${touch.clientY - this.touchOffset.y}px`;
+        this.draggedPiece = e.target;
+        this.sourceSquare = square;
+        e.dataTransfer.setData("text/plain", "");
+        this.highlightAvailableMoves();
     }
-
+    
+    handleDrop(e, rowIndex, colIndex) {
+        e.preventDefault();
+        const targetSquare = { row: rowIndex, col: colIndex };
+        if (this.draggedPiece) {
+            this.handleMove(this.sourceSquare, targetSquare);
+            this.clearDrag();
+        }
+    }
+    
     handleTouchEnd(e, rowIndex, colIndex) {
         if (!this.sourceSquare) return;
         

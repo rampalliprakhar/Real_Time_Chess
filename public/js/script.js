@@ -279,10 +279,15 @@ class ChessGame {
         const pieceElement = e.target.closest('.piece');
         if (!pieceElement) return;
         
+        // Check if it's the player's turn and piece
+        const piece = this.game.get(`${String.fromCharCode(97 + square.col)}${8 - square.row}`);
+        if (!piece || piece.color !== this.playerRole) return;
+        
+        this.draggedPiece = pieceElement;
         this.sourceSquare = { row: parseInt(square.row), col: parseInt(square.col) };
         this.highlightAvailableMoves();
     }
-
+    
     handleTouchEnd(e, rowIndex, colIndex) {
         e.preventDefault();
         e.stopPropagation();
@@ -290,8 +295,10 @@ class ChessGame {
         if (!this.sourceSquare) return;
         
         const targetSquare = { row: parseInt(rowIndex), col: parseInt(colIndex) };
+        const targetNotation = `${String.fromCharCode(97 + targetSquare.col)}${8 - targetSquare.row}`;
         
-        if (this.availableMoves.includes(`${String.fromCharCode(97 + targetSquare.col)}${8 - targetSquare.row}`)) {
+        // Check if the target square is in available moves
+        if (this.availableMoves.includes(targetNotation)) {
             this.handleMove(this.sourceSquare, targetSquare);
         }
         

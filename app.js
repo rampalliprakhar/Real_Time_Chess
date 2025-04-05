@@ -9,10 +9,12 @@ const app = express();
 const server = http.createServer(app);
 const io = socket(server, {
     cors: {
-        origin: "*",
+        origin: "https://real-time-chess.onrender.com",
         methods: ["GET", "POST"]
     },
+    secure: true,
     pingTimeout: 60000,
+    pingInterval: 25000,
     transports: ['websocket', 'polling']
 });
 
@@ -31,7 +33,7 @@ const reconnectionTimeout = 30000;
 
 // Handle socket connections
 io.on("connection", (mainsocket) => {
-    console.log("Connected");
+    console.log("A user connected: ",  mainsocket.id);
 
     if (!players.white.id) {
         players.white.id = mainsocket.id;
@@ -59,10 +61,11 @@ io.on("connection", (mainsocket) => {
                 io.emit("updatePlayers", players);                
             }, reconnectionTimeout)
         }
+        console.log("A user disconnected: ", mainsocket.id);
     });
 
     mainsocket.on("move", (move) => {
-        console.log(move);
+        console.log('Received move from client', move);
         if (!isValidGameState(chess, move)) {
             mainsocket.emit("invalidGameState");
             return;
@@ -87,7 +90,7 @@ io.on("connection", (mainsocket) => {
             }
         } catch (err) {
             console.log(err);
-            mainsocket.emit("wrongMove", move);
+            mainsocket.broadcast.emit("wrongMove", move);
         }
     });
 

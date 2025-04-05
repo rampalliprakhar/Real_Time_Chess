@@ -10,12 +10,18 @@ const server = http.createServer(app);
 const io = socket(server, {
     cors: {
         origin: "https://real-time-chess.onrender.com",
-        methods: ["GET", "POST"]
+        methods: ["GET", "POST"],
+        credentials: true
     },
-    secure: true,
     pingTimeout: 60000,
     pingInterval: 25000,
-    transports: ['websocket', 'polling']
+    transports: ['websocket', 'polling'],
+    allowEIO3: true
+});
+
+// Check connection error
+io.engine.on("connection_error", (err) => {
+    console.log("Connection error:", err);
 });
 
 const chess = new Chess();
@@ -30,6 +36,19 @@ app.use(express.static(path.join(__dirname, "public")));
 
 // Tracking disconnected players and allowing reconnections for 30 seconds
 const reconnectionTimeout = 30000;
+
+// Function to check valid moves
+function isValidGameState(chess, move) {
+    // Validate move and game state
+    if (!chess || !move) return false;
+
+    // Check if the move is valid
+    if (!move.from || !move.to) return false;
+
+    // Verify the move is legal
+    const validMove = chess.moves({ verbose: true });
+    return validMove.some(m => m.from === move.from && m.to === move.to);
+}
 
 // Handle socket connections
 io.on("connection", (mainsocket) => {
@@ -92,6 +111,10 @@ io.on("connection", (mainsocket) => {
             console.log(err);
             mainsocket.broadcast.emit("wrongMove", move);
         }
+    });
+
+    mainsocket.on("error", (error) => {
+        console.log("Socket error:", error);
     });
 
     mainsocket.on("resign", () => {
